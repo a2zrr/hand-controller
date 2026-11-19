@@ -1,0 +1,37 @@
+# hand-controller configuration. Every value here is the built-in default.
+# Command-line flags (see `uv run hand-controller --help`) override these.
+
+[camera]
+index = 0          # 0 = first webcam. Try 1, 2... if you have several cameras.
+width = 640
+height = 480
+
+[detection]
+model_path = "models/hand_landmarker.task"
+min_detection_confidence = 0.5
+min_presence_confidence = 0.5
+min_tracking_confidence = 0.5
+swap_handedness = false           # flip the reported Left/Right label (informational only)
+
+[features]
+use_z = false      # include the MediaPipe z (depth) value in trained-model features
+
+[classifier]
+name = "rules"                    # "rules" or "model" (trained with tools/train.py)
+model_path = "models/gesture_clf.joblib"
+min_hand_score = 0.5              # hands with a lower handedness score are treated as "no hand"
+finger_extend_ratio = 1.15        # a finger is extended if tip is this many times farther from the wrist than its PIP joint
+dead_zone_deg = 20.0              # gap between direction sectors; pointing inside it gives dead_zone_state
+dead_zone_state = "STOP"
+min_model_confidence = 0.6        # model predictions below this become STOP
+
+[smoothing]
+direction_frames = 4              # consecutive frames needed to switch to RIGHT/LEFT/UP/DOWN
+stop_frames = 2                   # consecutive frames needed to switch to STOP
+
+[output]
+host = "127.0.0.1"
+port = 5005
+
+[display]
+window = true                     # false is the same as passing --no-window

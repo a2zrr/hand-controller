@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Model files and recorded data (downloaded or generated locally)
+models/*.task
+models/*.joblib
+data/*.csv
+
+# Keep the folders themselves
+!models/.gitkeep
+!data/.gitkeep
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+.sync.log

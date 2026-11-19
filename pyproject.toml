@@ -1,0 +1,29 @@
+[project]
+name = "hand-controller"
+version = "0.1.0"
+description = "Turns hand gestures seen by a webcam into game input over UDP."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # 0.10.x is the stable line. MediaPipe brings its own OpenCV (opencv-contrib-python).
+    "mediapipe>=0.10.35,<0.11",
+    "numpy>=1.26",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+]
+
+[project.scripts]
+hand-controller = "hand_controller.app:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hand_controller"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
