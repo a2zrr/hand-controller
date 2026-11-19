@@ -5,8 +5,11 @@ description = "Turns hand gestures seen by a webcam into game input over UDP."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    # 0.10.x is the stable line. MediaPipe brings its own OpenCV (opencv-contrib-python).
+    # 0.10.x is the stable line. MediaPipe needs the contrib build of OpenCV.
     "mediapipe>=0.10.35,<0.11",
+    # Depend on the contrib build directly so cv2 is always present. Never add opencv-python:
+    # both packages install a cv2 module and break each other.
+    "opencv-contrib-python>=4.10",
     "numpy>=1.26",
     "scikit-learn>=1.5",
     "joblib>=1.4",

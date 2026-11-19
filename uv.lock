@@ -126,6 +126,7 @@ dependencies = [
     { name = "joblib" },
     { name = "mediapipe" },
     { name = "numpy" },
+    { name = "opencv-contrib-python" },
     { name = "scikit-learn" },
 ]
 
@@ -139,6 +140,7 @@ requires-dist = [
     { name = "joblib", specifier = ">=1.4" },
     { name = "mediapipe", specifier = ">=0.10.35,<0.11" },
     { name = "numpy", specifier = ">=1.26" },
+    { name = "opencv-contrib-python", specifier = ">=4.10" },
     { name = "scikit-learn", specifier = ">=1.5" },
 ]
 
