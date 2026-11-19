@@ -27,6 +27,8 @@ class DetectionConfig:
     min_tracking_confidence: float = 0.5
     # Only changes the reported "hand" label. Direction logic never uses it.
     swap_handedness: bool = False
+    # "auto" tries the GPU delegate and falls back to CPU; "gpu" or "cpu" force one.
+    delegate: str = "auto"
 
 
 @dataclass
@@ -51,10 +53,10 @@ class ClassifierConfig:
 
 @dataclass
 class SmoothingConfig:
-    """Number of consecutive frames needed before a state change is accepted."""
+    """How long (ms) a new state must hold before it is accepted."""
 
-    direction_frames: int = 4
-    stop_frames: int = 2
+    direction_ms: float = 120.0
+    stop_ms: float = 60.0
 
 
 @dataclass

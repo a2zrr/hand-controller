@@ -71,7 +71,7 @@ class _Monotonic:
 def run(cfg: Config) -> int:
     """Run the capture loop until the user quits (q/Esc in the window, or Ctrl+C)."""
     classifier = build_classifier(cfg.classifier, cfg.features)
-    smoother = Smoother(cfg.smoothing.direction_frames, cfg.smoothing.stop_frames)
+    smoother = Smoother(cfg.smoothing.direction_ms, cfg.smoothing.stop_ms)
     output: Output = UdpOutput(cfg.output.host, cfg.output.port)
     clock = _Monotonic()
     preview = Preview(cfg.display.window)
@@ -93,7 +93,7 @@ def run(cfg: Config) -> int:
 
                 hand = detector.detect(frame, clock.next_ms())
                 raw, raw_conf = classifier.classify(hand)
-                state, confidence = smoother.update(raw, raw_conf)
+                state, confidence = smoother.update(raw, raw_conf, clock.next_ms())
                 hand_label = hand.handedness if hand is not None else None
                 output.send(state, confidence, hand_label, now_ms())
 

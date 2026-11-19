@@ -12,6 +12,7 @@ min_detection_confidence = 0.5
 min_presence_confidence = 0.5
 min_tracking_confidence = 0.5
 swap_handedness = false           # flip the reported Left/Right label (informational only)
+delegate = "auto"                 # "auto" (GPU, falls back to CPU), "gpu" or "cpu"
 
 [features]
 use_z = false      # include the MediaPipe z (depth) value in trained-model features
@@ -26,8 +27,8 @@ dead_zone_state = "STOP"
 min_model_confidence = 0.6        # model predictions below this become STOP
 
 [smoothing]
-direction_frames = 4              # consecutive frames needed to switch to RIGHT/LEFT/UP/DOWN
-stop_frames = 2                   # consecutive frames needed to switch to STOP
+direction_ms = 120.0              # a direction must be stable this long before it is sent
+stop_ms = 60.0                    # STOP is accepted faster, because it is the safe state
 
 [output]
 host = "127.0.0.1"

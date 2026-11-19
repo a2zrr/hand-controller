@@ -20,9 +20,9 @@ def test_shipped_config_matches_defaults():
 
 def test_values_override_defaults(tmp_path):
     p = tmp_path / "c.toml"
-    p.write_text("[output]\nport = 6000\n[smoothing]\ndirection_frames = 7\n", encoding="utf-8")
+    p.write_text("[output]\nport = 6000\n[smoothing]\ndirection_ms = 200\n", encoding="utf-8")
     cfg = load_config(p)
-    assert cfg.output.port == 6000 and cfg.smoothing.direction_frames == 7
+    assert cfg.output.port == 6000 and cfg.smoothing.direction_ms == 200
     assert cfg.output.host == "127.0.0.1"
 
 

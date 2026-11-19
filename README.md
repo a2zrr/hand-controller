@@ -82,11 +82,12 @@ each one. Main sections:
 | `[camera]` | `index`, `width`, `height` | `0`, `640`, `480` | Webcam and resolution |
 | `[detection]` | `min_*_confidence` | `0.5` | MediaPipe thresholds |
 | `[detection]` | `swap_handedness` | `false` | Flip the reported Left/Right label (informational only) |
+| `[detection]` | `delegate` | `"auto"` | MediaPipe backend: `auto` (GPU, falls back to CPU), `gpu` or `cpu` |
 | `[classifier]` | `name` | `"rules"` | `"rules"` or `"model"` |
 | `[classifier]` | `dead_zone_deg` | `20.0` | Gap between two direction sectors |
 | `[classifier]` | `finger_extend_ratio` | `1.15` | How much farther the tip must be from the wrist than the PIP joint |
-| `[smoothing]` | `direction_frames` | `4` | Frames needed to switch to a direction |
-| `[smoothing]` | `stop_frames` | `2` | Frames needed to switch to `STOP` |
+| `[smoothing]` | `direction_ms` | `120` | Time a direction must stay stable before it is sent |
+| `[smoothing]` | `stop_ms` | `60` | Time `STOP` must stay stable before it is sent |
 | `[output]` | `host`, `port` | `127.0.0.1`, `5005` | Where messages are sent |
 | `[display]` | `window` | `true` | Debug window on/off |
 
@@ -173,6 +174,22 @@ Notes for the team:
 - Only one program can listen on port 5005. If you change the port, change it in both
   `config.toml` (or `--port`) and the `new HandInputClient(...)` call.
 
+## Performance
+
+Measured on the development machine (Fedora, 8 CPU cores, 640x480 webcam), with
+`uv run python tools/benchmark.py --seconds 20` (3 s warm-up, then 20 s measured):
+
+| Detector delegate | Loop FPS | MediaPipe per frame (median) |
+|---|---|---|
+| CPU | about 13-14 | about 61 ms |
+| GPU (default `auto`) | 25.1 | 38 ms |
+
+The MediaPipe call is the bottleneck. The camera read takes under 1 ms.
+Capture at 320x240 reaches about 30 FPS on the same machine, but the hand is smaller in
+the frame, so detection may be less reliable. 640x480 is the default.
+
+Smoothing is time-based (`direction_ms`, `stop_ms`), so the response time stays the same at any frame rate.
+
 ## Record, train and evaluate a model (optional)
 
 The rules work out of the box. A trained model can be more accurate for your hand and lighting.
@@ -246,11 +263,15 @@ reversed, set `swap_handedness = true` in `[detection]`.
 **Check the detector.** `uv run python tools/check_detector.py` prints what MediaPipe returns for
 real webcam frames.
 
+**Low frame rate.** Run `uv run python tools/benchmark.py`. The app prints which delegate it
+uses ("GPU" or "CPU"). If it says CPU, check the GPU/OpenGL drivers. Setting `delegate = "cpu"`
+is slower but always works.
+
 ## Project layout
 
 ```
 src/hand_controller/   app, capture, detection, classifier, features, smoothing, output, protocol, config, dataset
-tools/                 download_model, record, train, evaluate, fake_sender, check_detector
+tools/                 download_model, record, train, evaluate, fake_sender, check_detector, benchmark
 clients/csharp/        HandInput.cs (MonoGame/.NET client)
 clients/python/        listen.py (print messages)
 docs/PROTOCOL.md       message format
