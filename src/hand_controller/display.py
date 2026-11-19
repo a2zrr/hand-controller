@@ -6,6 +6,7 @@ the Preview switches itself off with a message and the app continues headless.
 
 from __future__ import annotations
 
+import os
 import sys
 
 import cv2
@@ -14,6 +15,11 @@ import numpy as np
 from hand_controller.core import Hand, State
 
 WINDOW_NAME = "hand-controller"
+
+# OpenCV's pip wheels ship only the X11 ("xcb") Qt platform plugin. Without this, Qt looks for a
+# Wayland plugin that is not there and prints a warning. XWayland (xwayland-satellite) provides X11.
+if sys.platform.startswith("linux"):
+    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 # Hand skeleton edges (MediaPipe hand topology).
 CONNECTIONS = [
     (0, 1), (1, 2), (2, 3), (3, 4),

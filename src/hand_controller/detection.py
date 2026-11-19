@@ -9,7 +9,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from hand_controller.config import DetectionConfig
+from hand_controller.config import DetectionConfig, resolve_project_path
 from hand_controller.core import Hand
 
 MODEL_HELP = (
@@ -52,7 +52,7 @@ class HandDetector:
     """Detects at most one hand per frame. Use as a context manager to release the model."""
 
     def __init__(self, cfg: DetectionConfig) -> None:
-        path = Path(cfg.model_path)
+        path = resolve_project_path(cfg.model_path)
         if not path.exists():
             raise FileNotFoundError(MODEL_HELP.format(path=path))
         self._landmarker = _create_landmarker(path, cfg)

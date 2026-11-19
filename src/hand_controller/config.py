@@ -7,6 +7,17 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
+# The project folder (the one with pyproject.toml), found from this file's location.
+# Relative paths in config.toml and on the command line are resolved against it,
+# so the app works no matter which folder you start it from.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def resolve_project_path(path: str | Path) -> Path:
+    """Return an absolute path. Relative paths are relative to PROJECT_ROOT, not the CWD."""
+    p = Path(path)
+    return p if p.is_absolute() else PROJECT_ROOT / p
+
 
 @dataclass
 class CameraConfig:

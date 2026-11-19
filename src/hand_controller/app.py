@@ -11,7 +11,7 @@ import cv2
 
 from hand_controller.capture import Camera, CameraError
 from hand_controller.classifier import build_classifier
-from hand_controller.config import Config, load_config
+from hand_controller.config import PROJECT_ROOT, Config, load_config, resolve_project_path
 from hand_controller.core import State
 from hand_controller.detection import HandDetector
 from hand_controller.display import Preview
@@ -23,14 +23,14 @@ from hand_controller.smoothing import Smoother
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line flags. Only flags that are given override config.toml."""
     p = argparse.ArgumentParser(prog="hand-controller", description="Hand gestures to game input over UDP.")
-    p.add_argument("--config", type=Path, default=Path("config.toml"), help="config file (default: config.toml)")
+    p.add_argument("--config", type=Path, default=PROJECT_ROOT / "config.toml", help="config file (default: config.toml in the project folder)")
     p.add_argument("--camera", type=int, dest="camera_index", help="camera index (default from config)")
     p.add_argument("--width", type=int, dest="camera_width", help="camera width in pixels")
     p.add_argument("--height", type=int, dest="camera_height", help="camera height in pixels")
     p.add_argument("--host", dest="output_host", help="UDP host to send to")
     p.add_argument("--port", type=int, dest="output_port", help="UDP port to send to")
     p.add_argument("--classifier", choices=["rules", "model"], dest="classifier_name", help="gesture classifier")
-    p.add_argument("--model", dest="classifier_model_path", help="path to a trained .joblib model")
+    p.add_argument("--model", dest="classifier_model_path", help="path to a trained .joblib model (relative paths are relative to the project folder)")
     p.add_argument("--no-window", action="store_true", help="do not open the debug window")
     return p.parse_args(argv)
 
@@ -121,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
     """Console entry point (`uv run hand-controller`)."""
     args = parse_args(argv)
     try:
-        cfg = apply_overrides(load_config(args.config), args)
+        cfg = apply_overrides(load_config(resolve_project_path(args.config)), args)
     except (ValueError, OSError) as exc:
         print(f"Config error: {exc}")
         return 2

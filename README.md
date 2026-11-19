@@ -75,7 +75,8 @@ The camera image is mirrored, so pointing right on screen means right for the pl
 ## Configuration
 
 All settings are in `config.toml`, with the built-in defaults shown. Comments in the file explain
-each one. Main sections:
+each one. Relative paths (config file, model files) are relative to the project folder, so you can
+start the app from any directory with `uv run --project hand-controller hand-controller`. Main sections:
 
 | Section | Key | Default | Meaning |
 |---|---|---|---|

@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 from typing import Protocol
 
 import joblib
 import numpy as np
 
-from hand_controller.config import ClassifierConfig, FeaturesConfig
+from hand_controller.config import ClassifierConfig, FeaturesConfig, resolve_project_path
 from hand_controller.core import Hand, State
 from hand_controller.features import hand_features
 
@@ -113,7 +112,7 @@ class ModelClassifier:
     """Trained scikit-learn model (see tools/train.py). Same interface as RuleClassifier."""
 
     def __init__(self, cfg: ClassifierConfig, features: FeaturesConfig) -> None:
-        path = Path(cfg.model_path)
+        path = resolve_project_path(cfg.model_path)
         if not path.exists():
             raise FileNotFoundError(
                 f"Model file not found: {path}. Train one with `uv run python tools/train.py`, "
