@@ -9,7 +9,7 @@ import numpy as np
 
 
 class State(str, Enum):
-    """The five states a game can receive."""
+    """The five states a client application can receive."""
 
     RIGHT = "RIGHT"
     LEFT = "LEFT"

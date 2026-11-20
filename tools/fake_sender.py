@@ -1,4 +1,4 @@
-"""Send hand-controller states from the keyboard, so you can test a game without a camera.
+"""Send hand-controller states from the keyboard, so you can test any client without a camera.
 
 Controls (in this terminal window):
   Arrow keys or W/A/S/D  -> RIGHT / LEFT / UP / DOWN (WASD: W=UP, A=LEFT, S=DOWN, D=RIGHT)

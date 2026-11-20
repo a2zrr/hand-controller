@@ -22,7 +22,7 @@ from hand_controller.smoothing import Smoother
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line flags. Only flags that are given override config.toml."""
-    p = argparse.ArgumentParser(prog="hand-controller", description="Hand gestures to game input over UDP.")
+    p = argparse.ArgumentParser(prog="hand-controller", description="Hand gestures as control input for any app or game, over UDP.")
     p.add_argument("--config", type=Path, default=PROJECT_ROOT / "config.toml", help="config file (default: config.toml in the project folder)")
     p.add_argument("--camera", type=int, dest="camera_index", help="camera index (default from config)")
     p.add_argument("--width", type=int, dest="camera_width", help="camera width in pixels")

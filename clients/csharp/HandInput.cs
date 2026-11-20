@@ -1,14 +1,14 @@
-// HandInput.cs - receives hand-controller messages over UDP.
+// HandInput.cs - receives hand-controller states over UDP.
 //
 // What it does:
 //   * Listens for UDP packets from hand-controller (default: 127.0.0.1:5005).
-//   * Reads them on a background thread, so the game loop never waits for the network.
-//   * Exposes CurrentState: the latest direction, or STOP if the messages stopped.
+//   * Reads them on a background thread, so your main loop never waits for the network.
+//   * Exposes CurrentState: the latest direction, or Stop if no message arrived recently.
 //
-// It has NO dependency on MonoGame or any game code. You can copy it into any .NET project.
-// Requires .NET 6 or newer (System.Text.Json is built in).
+// It has no dependency on any engine or game framework. Copy it into any .NET project
+// (console app, WinForms, WPF, ASP.NET, or a game). Requires .NET 6 or newer.
 //
-// Rule from the protocol: if no message arrives for 300 ms, the state is STOP.
+// Protocol rule: if no message arrives for 300 ms, the state is Stop.
 
 using System;
 using System.Net;
@@ -32,36 +32,37 @@ namespace HandInput
     /// <summary>Receives hand gestures from hand-controller and exposes the current state.</summary>
     public sealed class HandInputClient : IDisposable
     {
-        /// <summary>If no message is received for this long, the state is treated as STOP.</summary>
+        /// <summary>If no message is received for this long, the state is treated as Stop.</summary>
         public static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(300);
 
         private readonly UdpClient _udp;
         private readonly Thread _thread;
 
-        // Every field below is read by the game thread and written by the receive thread.
+        // These fields are written by the receive thread and read by your main thread.
         // Access them ONLY while holding _lock.
         private readonly object _lock = new object();
         private HandState _latestState = HandState.Stop;
         private DateTime _lastReceivedUtc = DateTime.MinValue; // MinValue = nothing received yet
+
         private volatile bool _running = true;
 
         /// <summary>Starts listening on the given UDP port (localhost by default).</summary>
         public HandInputClient(int port = 5005)
         {
-            // Bind to localhost only: hand-controller runs on the same machine.
+            // Bind to the loopback address only: hand-controller runs on the same machine.
             _udp = new UdpClient(new IPEndPoint(IPAddress.Loopback, port));
 
-            // A background thread keeps the game loop free of blocking network calls.
+            // A background thread waits for packets, so the main thread never blocks on the network.
             _thread = new Thread(ReceiveLoop)
             {
-                IsBackground = true, // do not keep the game process alive
+                IsBackground = true, // do not keep the process alive after the main thread ends
                 Name = "HandInput receive loop"
             };
             _thread.Start();
         }
 
         /// <summary>
-        /// The latest direction from hand-controller. Returns STOP when:
+        /// The latest direction from hand-controller. Returns Stop when:
         /// nothing was received yet, the last message is older than 300 ms,
         /// or the client has been disposed.
         /// </summary>
@@ -90,7 +91,7 @@ namespace HandInput
             {
                 try
                 {
-                    // Blocks until a packet arrives (or the socket is closed by Dispose).
+                    // Blocks until a packet arrives, or until Dispose() closes the socket.
                     byte[] data = _udp.Receive(ref sender);
                     string json = Encoding.UTF8.GetString(data);
 
@@ -105,7 +106,7 @@ namespace HandInput
                 }
                 catch (SocketException)
                 {
-                    // Usually a "port in use" or a closed socket. Stop listening.
+                    // The socket failed (for example, the port is already in use). Stop listening.
                     break;
                 }
                 catch (ObjectDisposedException)
@@ -128,7 +129,7 @@ namespace HandInput
                 using JsonDocument doc = JsonDocument.Parse(json);
                 JsonElement root = doc.RootElement;
 
-                // Only accept version 1 messages.
+                // Only accept protocol version 1.
                 if (!root.TryGetProperty("v", out JsonElement version) || version.GetInt32() != 1)
                     return false;
 
@@ -155,7 +156,7 @@ namespace HandInput
             }
         }
 
-        /// <summary>Stops the receive thread and closes the UDP socket. Call this when the game exits.</summary>
+        /// <summary>Stops the receive thread and closes the UDP socket. Call this before your program exits.</summary>
         public void Dispose()
         {
             _running = false;
