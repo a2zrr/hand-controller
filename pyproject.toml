@@ -1,7 +1,10 @@
 [project]
 name = "hand-controller"
 version = "0.1.0"
-description = "Turns hand gestures seen by a webcam into game input over UDP."
+description = "Control any app or game with hand gestures from a webcam. Sends RIGHT, LEFT, UP, DOWN and STOP over UDP."
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["hand-tracking", "gesture-recognition", "webcam", "mediapipe", "udp", "game-controller", "accessibility", "computer-vision"]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

@@ -1,41 +1,49 @@
 # hand-controller
 
-Control a game with your hand, using only a webcam.
+Control any app or game with your hand, using only a webcam.
 
-hand-controller watches one hand through the webcam and turns its pose into one of five
-states: `RIGHT`, `LEFT`, `UP`, `DOWN`, `STOP`. It sends the state to the game as a small
-JSON message over UDP, once per camera frame. It does not depend on any specific game.
-The first game that uses it is UniScape (MonoGame, C#).
+hand-controller watches one hand through the webcam and reports one of five states:
+`RIGHT`, `LEFT`, `UP`, `DOWN` or `STOP`. It sends the state to your program as a small JSON
+message over UDP, on every camera frame. It knows nothing about the app that receives it, so
+any program that can open a UDP socket can use it: in any language and any engine.
+
+<!-- Demo GIF placeholder: add docs/demo.gif and replace this line with ![Demo](docs/demo.gif) -->
+*Demo GIF coming soon.*
+
+## How it works
 
 ```
 Webcam (OpenCV) -> MediaPipe Hand Landmarker -> classifier -> smoothing -> UDP JSON on 127.0.0.1:5005
 ```
 
+1. **Capture:** the webcam image is mirrored, so pointing right on screen means right for you.
+2. **Detection:** MediaPipe Hand Landmarker finds up to one hand and its 21 landmarks.
+3. **Classification:** a rule-based classifier (or a model you train) turns the landmarks into a
+   raw state. A pointing index finger gives a direction; anything else gives `STOP`.
+4. **Smoothing:** a new direction must hold for 120 ms (STOP for 60 ms) before it is sent, so
+   the output does not flicker.
+5. **Output:** one JSON message per frame goes to UDP `127.0.0.1:5005`, even when nothing changed.
+   The messages also act as a heartbeat.
+
 Works on Linux (including Wayland) and Windows.
+
+**Performance** (Fedora, 8 CPU cores, 640x480 webcam, GPU delegate): about 25-28 frames per second.
+MediaPipe takes about 35 ms per frame. Run `uv run python tools/benchmark.py` to measure your machine.
 
 ## Install
 
 You need [uv](https://docs.astral.sh/uv/getting-started/installation/). uv installs the pinned
-Python version (3.12, see `.python-version`) for you, so the system Python is not used.
+Python version (3.12, see `.python-version`) for you.
 
 ```bash
-git clone <your-repo-url> hand-controller
+git clone https://github.com/a2zrr/hand-controller.git
 cd hand-controller
 uv sync
+uv run python tools/download_model.py   # downloads the MediaPipe model (about 8 MB), once
 ```
 
-`uv sync` installs everything, including MediaPipe 0.10.x (which brings its own OpenCV build).
-
-## Download the hand model
-
-The MediaPipe model file is not stored in git. Download it once:
-
-```bash
-uv run python tools/download_model.py
-```
-
-This saves `models/hand_landmarker.task` (about 8 MB), from the official URL in the
-[MediaPipe Hand Landmarker guide](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker).
+`uv sync` installs MediaPipe 0.10.x and `opencv-contrib-python`, so no manual steps are needed.
+The model file is not stored in git.
 
 ## Run
 
@@ -43,8 +51,8 @@ This saves `models/hand_landmarker.task` (about 8 MB), from the official URL in 
 uv run hand-controller
 ```
 
-A debug window opens (mirrored camera, landmarks, the state in big text, raw state, FPS).
-Press `q` or `Esc` in the window, or Ctrl+C in the terminal, to quit.
+A debug window opens (mirrored camera, landmarks, the state in large text, raw state, FPS).
+Press `q` or `Esc` in the window, or Ctrl+C in the terminal, to quit. Every state change is printed.
 
 Useful flags (they override `config.toml`):
 
@@ -52,11 +60,11 @@ Useful flags (they override `config.toml`):
 uv run hand-controller --camera 1            # another webcam
 uv run hand-controller --no-window           # headless, no debug window
 uv run hand-controller --port 6000           # another UDP port
-uv run hand-controller --classifier model    # use the trained model (see below)
+uv run hand-controller --classifier model    # use a trained model (see below)
 uv run hand-controller --help
 ```
 
-Every state change is printed to the console.
+You can start it from any folder with `uv run --project /path/to/hand-controller hand-controller`.
 
 ## Gestures
 
@@ -70,20 +78,18 @@ Only one hand is used (either hand works).
 | No hand, low confidence, or anything unclear | `STOP` |
 
 Pointing diagonally (in the dead zone between two directions) gives `STOP` by default.
-The camera image is mirrored, so pointing right on screen means right for the player.
 
 ## Configuration
 
 All settings are in `config.toml`, with the built-in defaults shown. Comments in the file explain
-each one. Relative paths (config file, model files) are relative to the project folder, so you can
-start the app from any directory with `uv run --project hand-controller hand-controller`. Main sections:
+each one. Relative paths (config file, model files) are relative to the project folder.
 
 | Section | Key | Default | Meaning |
 |---|---|---|---|
 | `[camera]` | `index`, `width`, `height` | `0`, `640`, `480` | Webcam and resolution |
 | `[detection]` | `min_*_confidence` | `0.5` | MediaPipe thresholds |
+| `[detection]` | `delegate` | `"auto"` | `auto` (GPU, falls back to CPU), `gpu` or `cpu` |
 | `[detection]` | `swap_handedness` | `false` | Flip the reported Left/Right label (informational only) |
-| `[detection]` | `delegate` | `"auto"` | MediaPipe backend: `auto` (GPU, falls back to CPU), `gpu` or `cpu` |
 | `[classifier]` | `name` | `"rules"` | `"rules"` or `"model"` |
 | `[classifier]` | `dead_zone_deg` | `20.0` | Gap between two direction sectors |
 | `[classifier]` | `finger_extend_ratio` | `1.15` | How much farther the tip must be from the wrist than the PIP joint |
@@ -100,96 +106,38 @@ One UDP datagram per frame, containing JSON:
 {"v":1,"state":"LEFT","confidence":0.94,"hand":"Right","ts":1732057200123}
 ```
 
-Messages keep coming even when the state does not change, so they also act as a heartbeat.
+**Consumer rule:** if no valid message has arrived for 300 ms, treat the state as `STOP`.
 
-**Consumer rule:** if no message arrives for 300 ms, treat the state as `STOP`.
+The full specification, with the field table and the receiving algorithm, is in
+[docs/PROTOCOL.md](docs/PROTOCOL.md).
 
-Full specification: [docs/PROTOCOL.md](docs/PROTOCOL.md).
+## Using it from your app
 
-## Using it from a game (MonoGame / C#)
+The idea is the same in every language. Read the latest message on each frame, apply the 300 ms
+rule, then turn the state into a direction:
 
-The reference client is [clients/csharp/HandInput.cs](clients/csharp/HandInput.cs). It has no
-MonoGame dependency. Copy the file into your project. It listens on a background thread and
-exposes `CurrentState`, which returns `Stop` if the last message is older than 300 ms.
+```text
+hand = open UDP socket on 127.0.0.1:5005 (receive on a background thread)
 
-```csharp
-using HandInput;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Input;
-
-public class Game1 : Game
-{
-    private HandInputClient _handInput;
-
-    protected override void Initialize()
-    {
-        base.Initialize();
-        // Create it once. It starts listening on UDP port 5005 in the background.
-        _handInput = new HandInputClient(5005);
-    }
-
-    protected override void Update(GameTime gameTime)
-    {
-        // Read the latest state every frame.
-        Vector2 direction = HandToVector(_handInput.CurrentState);
-
-        // Keyboard still works: add it to the hand input.
-        KeyboardState keys = Keyboard.GetState();
-        if (keys.IsKeyDown(Keys.Left))  direction.X -= 1;
-        if (keys.IsKeyDown(Keys.Right)) direction.X += 1;
-        if (keys.IsKeyDown(Keys.Up))    direction.Y -= 1;
-        if (keys.IsKeyDown(Keys.Down))  direction.Y += 1;
-
-        if (direction != Vector2.Zero)
-            direction.Normalize();
-
-        // ... move the player with `direction` ...
-        base.Update(gameTime);
-    }
-
-    // In MonoGame, screen Y points DOWN, so "up" is negative Y.
-    private static Vector2 HandToVector(HandState state)
-    {
-        switch (state)
-        {
-            case HandState.Right: return new Vector2(1, 0);
-            case HandState.Left:  return new Vector2(-1, 0);
-            case HandState.Up:    return new Vector2(0, -1);
-            case HandState.Down:  return new Vector2(0, 1);
-            default:              return Vector2.Zero; // STOP
-        }
-    }
-
-    protected override void OnExiting(object sender, ExitingEventArgs args)
-    {
-        // Stop the background thread and close the socket when the game exits.
-        _handInput?.Dispose();
-        base.OnExiting(sender, args);
-    }
-}
+every frame:
+    if no message in the last 300 ms:  state = STOP
+    else:                              state = latest message's state
+    direction = RIGHT->(1,0)  LEFT->(-1,0)  UP->(0,-1)  DOWN->(0,1)  STOP->(0,0)
+    move the player by direction
 ```
 
-Notes for the team:
-- `HandInputClient` is created in `Initialize` and read in `Update`. Do not create it every frame.
-- Dispose it when the game exits (here in `OnExiting`), or the UDP port stays busy.
-- Only one program can listen on port 5005. If you change the port, change it in both
-  `config.toml` (or `--port`) and the `new HandInputClient(...)` call.
+(In most screen coordinates Y grows downward, so UP is (0,-1). Flip the sign if your engine uses Y-up.)
 
-## Performance
+Ready-made clients:
 
-Measured on the development machine (Fedora, 8 CPU cores, 640x480 webcam), with
-`uv run python tools/benchmark.py --seconds 20` (3 s warm-up, then 20 s measured):
-
-| Detector delegate | Loop FPS | MediaPipe per frame (median) |
+| Language | Location | Notes |
 |---|---|---|
-| CPU | about 13-14 | about 61 ms |
-| GPU (default `auto`) | 25.1 | 38 ms |
+| C# / .NET 6+ | [clients/csharp](clients/csharp/README.md) | One file, `HandInput.cs`, plus a console example |
+| Python | [clients/python](clients/python/hand_input.py) | `hand_input.py` (one class) and `listen.py` example |
+| JavaScript (Node.js) | [clients/javascript](clients/javascript/handInput.js) | `handInput.js` (one class) and `listen.js` example |
 
-The MediaPipe call is the bottleneck. The camera read takes under 1 ms.
-Capture at 320x240 reaches about 30 FPS on the same machine, but the hand is smaller in
-the frame, so detection may be less reliable. 640x480 is the default.
-
-Smoothing is time-based (`direction_ms`, `stop_ms`), so the response time stays the same at any frame rate.
+Anything else (Unity, Godot, Unreal, Pygame, MonoGame, a browser or a microcontroller bridge)
+only needs a UDP socket and the rule above, so you can write a client in a few dozen lines.
 
 ## Record, train and evaluate a model (optional)
 
@@ -197,16 +145,16 @@ The rules work out of the box. A trained model can be more accurate for your han
 
 1. **Record.** Opens the camera with the debug view. Press `1`-`5` to start recording a label
    (`1` RIGHT, `2` LEFT, `3` UP, `4` DOWN, `5` STOP); press the same number again to stop.
-   Make the gesture while recording. Record at least two sessions (for example on different
-   days or in different light), since the split is by session.
+   Make the gesture while recording. Record at least two sessions (different days or light),
+   because the split is by session.
    ```bash
    uv run python tools/record.py
    ```
    Each session is saved to `data/session-<timestamp>.csv`.
 
 2. **Train.** Trains a small neural network. The test set is whole sessions, never random
-   frames, to avoid cheating. It prints accuracy, a per-class report and a confusion matrix,
-   then saves `models/gesture_clf.joblib`.
+   frames, which avoids inflated scores. It prints accuracy, a per-class report and a confusion
+   matrix, then saves `models/gesture_clf.joblib`.
    ```bash
    uv run python tools/train.py
    ```
@@ -218,11 +166,10 @@ The rules work out of the box. A trained model can be more accurate for your han
 
 4. **Use the model.** Set `name = "model"` in `[classifier]`, or pass `--classifier model`.
 
-Features (for rules, training and runtime) come from one function,
-`hand_controller/features.py`: the 21 landmarks relative to the wrist and scaled by the palm
-size, computed on the mirrored image.
+Features for training and runtime come from one function, `src/hand_controller/features.py`:
+the 21 landmarks relative to the wrist and scaled by the palm size, computed on the mirrored image.
 
-## Testing without a camera
+## Testing
 
 ```bash
 uv run pytest
@@ -230,11 +177,11 @@ uv run pytest
 
 The unit tests use synthetic hand landmarks. They do not need a camera or the MediaPipe model.
 
-Other tools, also without a camera:
+Without a camera, you can test any client with:
 
 ```bash
-uv run python clients/python/listen.py   # print every message the app sends
 uv run python tools/fake_sender.py       # send states from the keyboard (arrows / WASD, space = STOP)
+uv run python clients/python/listen.py   # print state changes
 ```
 
 ## Troubleshooting
@@ -249,32 +196,34 @@ device exists (`ls /dev/video*`) and that your user can read it (the `video` gro
 **Lighting.** The hand must be clearly visible. Avoid strong light behind you and dim rooms.
 If the state flickers, improve the light or raise `min_detection_confidence`.
 
-**Window does not open on Wayland (Niri).** OpenCV's window uses X11, so it needs XWayland.
+**Debug window does not open on Wayland.** OpenCV's window uses X11, so it needs XWayland.
 Install `xwayland-satellite`, make sure `DISPLAY` is set in the terminal you run the app from,
-and restart the app. If the window still does not appear, run
-`uv run hand-controller --no-window`. The app keeps working headless and prints the same
-explanation.
+and restart the app. If it still fails, use `--no-window`. The app keeps working headless and
+prints the same explanation.
 
 **"Hand model not found".** Run `uv run python tools/download_model.py`.
 
-**Left/Right label looks wrong.** The label is informational only; direction logic never uses
-it. MediaPipe assumes a mirrored image, which is what the app sends it. If your label is still
-reversed, set `swap_handedness = true` in `[detection]`.
+**Left/Right label looks wrong.** The label is informational only; direction logic never uses it.
+If it is reversed on your machine, set `swap_handedness = true` in `[detection]`.
+
+**Low frame rate.** Run `uv run python tools/benchmark.py`. The app prints which delegate it uses.
+If it says CPU, check your GPU/OpenGL drivers. `delegate = "cpu"` is slower but always works.
 
 **Check the detector.** `uv run python tools/check_detector.py` prints what MediaPipe returns for
 real webcam frames.
-
-**Low frame rate.** Run `uv run python tools/benchmark.py`. The app prints which delegate it
-uses ("GPU" or "CPU"). If it says CPU, check the GPU/OpenGL drivers. Setting `delegate = "cpu"`
-is slower but always works.
 
 ## Project layout
 
 ```
 src/hand_controller/   app, capture, detection, classifier, features, smoothing, output, protocol, config, dataset
 tools/                 download_model, record, train, evaluate, fake_sender, check_detector, benchmark
-clients/csharp/        HandInput.cs (MonoGame/.NET client)
-clients/python/        listen.py (print messages)
+clients/csharp/        HandInput.cs (.NET client) and its README
+clients/python/        hand_input.py (client class) and listen.py (example)
+clients/javascript/    handInput.js (client class) and listen.js (example)
 docs/PROTOCOL.md       message format
 tests/                 pytest unit tests (no camera)
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
