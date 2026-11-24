@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 
@@ -18,11 +19,35 @@ MODEL_HELP = (
 )
 
 
-def _create_landmarker(path: Path, cfg: DetectionConfig) -> mp.tasks.vision.HandLandmarker:
+@dataclass(frozen=True)
+class FramePlan:
+    """How a BGR camera frame is converted before MediaPipe reads it."""
+
+    conversion: int  # cv2 colour conversion code
+    image_format: mp.ImageFormat  # must have as many channels as the conversion output
+
+
+def frame_plan_for(delegate: str) -> FramePlan:
+    """Return the frame format for a concrete delegate ("gpu" or "cpu").
+
+    This is the only place that decides it. The GPU delegate on macOS (Metal) aborts the
+    process with "unsupported ImageFrame format: 1" when given 3-channel SRGB images, and an
+    abort cannot be caught, so the GPU path always gets 4-channel SRGBA. The CPU path keeps SRGB.
+    """
+    if delegate == "gpu":
+        return FramePlan(conversion=cv2.COLOR_BGR2RGBA, image_format=mp.ImageFormat.SRGBA)
+    if delegate == "cpu":
+        return FramePlan(conversion=cv2.COLOR_BGR2RGB, image_format=mp.ImageFormat.SRGB)
+    raise ValueError(f"No frame format for delegate {delegate!r}; expected 'gpu' or 'cpu'")
+
+
+def _create_landmarker(path: Path, cfg: DetectionConfig) -> tuple[mp.tasks.vision.HandLandmarker, str]:
     """Create the landmarker on the requested delegate.
 
     "auto" tries the GPU first, because it is about 3x faster on Linux, and falls back to CPU
     when the GPU delegate is not available (for example on some Windows setups).
+
+    Returns the landmarker and the concrete delegate it was created on ("gpu" or "cpu").
     """
     delegates = {"cpu": ["cpu"], "gpu": ["gpu"], "auto": ["gpu", "cpu"]}
     if cfg.delegate not in delegates:
@@ -44,7 +69,7 @@ def _create_landmarker(path: Path, cfg: DetectionConfig) -> mp.tasks.vision.Hand
             last_error = exc
             continue
         print(f"Hand detector using the {name.upper()} delegate")
-        return landmarker
+        return landmarker, name
     raise RuntimeError(f"Could not create the hand detector on delegate '{cfg.delegate}': {last_error}")
 
 
@@ -55,7 +80,9 @@ class HandDetector:
         path = resolve_project_path(cfg.model_path)
         if not path.exists():
             raise FileNotFoundError(MODEL_HELP.format(path=path))
-        self._landmarker = _create_landmarker(path, cfg)
+        self._landmarker, delegate = _create_landmarker(path, cfg)
+        # The frame format follows the delegate that was actually created, not the configured one.
+        self._frame_plan = frame_plan_for(delegate)
         self._last_ts = -1
         self._swap_handedness = cfg.swap_handedness
 
@@ -85,8 +112,8 @@ class HandDetector:
             The detected hand, or None when no hand is visible.
         """
         height, width = frame_bgr.shape[:2]
-        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.ascontiguousarray(rgb))
+        converted = cv2.cvtColor(frame_bgr, self._frame_plan.conversion)
+        image = mp.Image(image_format=self._frame_plan.image_format, data=np.ascontiguousarray(converted))
         ts = max(int(timestamp_ms), self._last_ts + 1)
         self._last_ts = ts
         result = self._landmarker.detect_for_video(image, ts)

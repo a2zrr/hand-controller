@@ -212,6 +212,25 @@ If it says CPU, check your GPU/OpenGL drivers. `delegate = "cpu"` is slower but 
 **Check the detector.** `uv run python tools/check_detector.py` prints what MediaPipe returns for
 real webcam frames.
 
+### macOS
+
+**Crash on the first frame: `unsupported ImageFrame format: 1`.** On some Macs (seen on Apple
+M4 with MediaPipe 0.10.35) the GPU delegate (Metal) aborts the process on the first frame. The
+app cannot catch this, so `delegate = "auto"` does not help. Use the CPU delegate instead, which
+works everywhere and is slower:
+
+```toml
+# config.toml
+[detection]
+delegate = "cpu"
+```
+
+**`AVCaptureDeviceTypeExternal is deprecated` warning.** This comes from macOS and is harmless.
+Ignore it.
+
+**macOS uses an iPhone instead of the built-in webcam.** With Continuity Camera, the iPhone can
+appear as camera 0. Use the built-in webcam with `--camera 1` (or try 2).
+
 ## Project layout
 
 ```
